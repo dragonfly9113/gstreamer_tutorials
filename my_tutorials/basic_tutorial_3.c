@@ -174,6 +174,7 @@ exit:
 
   /* Unreference the sink pad */
   gst_object_unref (sink_pad);
+  gst_object_unref (vsink_pad);
 }
 
 
