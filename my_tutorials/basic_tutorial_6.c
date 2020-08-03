@@ -101,44 +101,6 @@ static void print_pad_capabilities (GstElement *element, gchar *pad_name) {
 }
 
 
-/* Put message handling into a function */
-static void handle_message (CustomData *data, GstMessage *msg) {
-  GError *err;
-  gchar *debug_info;
-
-  switch (GST_MESSAGE_TYPE (msg)) {
-    case GST_MESSAGE_ERROR:
-      gst_message_parse_error (msg, &err, &debug_info);
-      g_printerr ("Error received from element %s: %s\n", GST_OBJECT_NAME (msg->src), err->message);
-      g_printerr ("Debugging information: %s\n", debug_info ? debug_info : "none");
-      g_clear_error (&err);
-      g_free (debug_info);
-      terminate = TRUE;
-      break;
-    case GST_MESSAGE_EOS:
-      g_print ("End of stream reached.\n");
-      terminate = TRUE;
-      break;
-    case GST_MESSAGE_STATE_CHANGED:
-      /* we are only interested in state-changed messages from the pipeline */
-      if (GST_MESSAGE_SRC (msg) == GST_OBJECT (pipeline)) {
-        GstState old_state, new_state, pending_state;
-        gst_message_parse_state_changed (msg, &old_state, &new_state, &pending_state);
-	g_print ("Pipeline state changed from %s to %s:\n",
-	    gst_element_state_get_name (old_state), gst_element_state_get_name (new_state));
-        /* Print the current capabilities of the sink element */
-	print_pad_capabilities (sink, "sink");
-      }
-      break;
-    default:
-      /* We should not reach here */
-      g_printerr ("Unexpected message received.\n");
-      break;
-  }
-  gst_message_unref (msg);
-}
-
-
 int main (int argc, char *argv[]) {
   GstElement *pipeline, *source, *sink;
   GstElementFactory *source_factory, *sink_factory;
@@ -152,7 +114,7 @@ int main (int argc, char *argv[]) {
 
   /* Create the element factories */
   source_factory = gst_element_factory_find ("audiotestsrc");  
-  sink_factory = get_element_factory_find ("autoaudiosink");
+  sink_factory = gst_element_factory_find ("autoaudiosink");
   if (!source_factory || !sink_factory) {
     g_printerr ("Not all element factories could be created.\n");
     return -1;
@@ -176,7 +138,7 @@ int main (int argc, char *argv[]) {
 
   /* Build the pipeline */
   gst_bin_add_many (GST_BIN (pipeline), source, sink, NULL);
-  if (gst_element_link (source, link) != TRUE) {
+  if (gst_element_link (source, sink) != TRUE) {
     g_printerr ("Elements could not be linked.\n");
     gst_object_unref (pipeline);
     return -1;
@@ -192,15 +154,48 @@ int main (int argc, char *argv[]) {
     g_printerr ("Unable to set the pipeline to the playing state (check the bus for error messages).\n");
   }
 
-  /* Wait until error, EOS or State Change */  
+  /* Wait until error, EOS or State Change */
   bus = gst_element_get_bus (pipeline);
   do {
-    msg = gst_bus_timed_pop_filtered (bus, GST_LOCK_TIME_NONE, GST_MESSAGE_ERROR | GST_MESSAGE_EOS |
-	GST_MESSAGE_STATE_CHANGED);
+    msg = gst_bus_timed_pop_filtered (bus, GST_CLOCK_TIME_NONE, GST_MESSAGE_ERROR | GST_MESSAGE_EOS |
+	      GST_MESSAGE_STATE_CHANGED);
 
     /* Parse message */
-    if (msg != NULL)
-      handle_message (&data, msg);
+    if (msg != NULL) {
+      GError *err;
+      gchar *debug_info;
+
+      switch (GST_MESSAGE_TYPE (msg)) {
+        case GST_MESSAGE_ERROR:
+          gst_message_parse_error (msg, &err, &debug_info);
+          g_printerr ("Error received from element %s: %s\n", GST_OBJECT_NAME (msg->src), err->message);
+          g_printerr ("Debugging information: %s\n", debug_info ? debug_info : "none");
+          g_clear_error (&err);
+          g_free (debug_info);
+          terminate = TRUE;
+          break;
+        case GST_MESSAGE_EOS:
+          g_print ("End of stream reached.\n");
+          terminate = TRUE;
+          break;
+        case GST_MESSAGE_STATE_CHANGED:
+          /* we are only interested in state-changed messages from the pipeline */
+          if (GST_MESSAGE_SRC (msg) == GST_OBJECT (pipeline)) {
+            GstState old_state, new_state, pending_state;
+            gst_message_parse_state_changed (msg, &old_state, &new_state, &pending_state);
+            g_print ("Pipeline state changed from %s to %s:\n",
+                        gst_element_state_get_name (old_state), gst_element_state_get_name (new_state));
+            /* Print the current capabilities of the sink element */
+            print_pad_capabilities (sink, "sink");
+          }
+          break;
+        default:
+          /* We should not reach here */
+          g_printerr ("Unexpected message received.\n");
+          break;
+      }
+      gst_message_unref (msg);
+    }
   } while (!terminate);
 
   /* Free resources */
@@ -211,6 +206,3 @@ int main (int argc, char *argv[]) {
   gst_object_unref (sink_factory);
   return 0;
 }
-
-
-
