@@ -66,19 +66,19 @@ int main(int argc, char *argv[]) {
 
     switch (GST_MESSAGE_TYPE (msg)) {
       case GST_MESSAGE_ERROR:
-	gst_message_parse_error (msg, &err, &debug_info);
-	g_printerr ("Error recevied from element %s: %s\n", GST_OBJECT_NAME (msg->src), err->message);
-	g_printerr ("Debugging information: %s\n", debug_info ? debug_info : "none");
-	g_clear_error (&err);
-	g_free (debug_info);
-	break;
+	      gst_message_parse_error (msg, &err, &debug_info);
+	      g_printerr ("Error recevied from element %s: %s\n", GST_OBJECT_NAME (msg->src), err->message);
+	      g_printerr ("Debugging information: %s\n", debug_info ? debug_info : "none");
+	      g_clear_error (&err);
+	      g_free (debug_info);
+	      break;
       case GST_MESSAGE_EOS:
-	g_print ("End-Of-Stream reached.\n");
-	break;
+        g_print ("End-Of-Stream reached.\n");
+        break;
       default:
-	/* We should not reach here because we only asked for ERRORs and EOS */
-	g_printerr ("Unexpected message received.\n");
-	break;
+        /* We should not reach here because we only asked for ERRORs and EOS */
+        g_printerr ("Unexpected message received.\n");
+        break;
     }
     gst_message_unref (msg);
   }
